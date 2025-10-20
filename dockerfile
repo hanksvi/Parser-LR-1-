@@ -37,5 +37,5 @@ RUN pip install --no-cache-dir -r requirements.txt || echo "Sin requirements.txt
 ENV PORT=8000
 EXPOSE 8000
 
-# Comando de inicio (sirve frontend y backend)
-CMD python src/main.py & cd frontend && npm start
+
+CMD python src/run_all.py & cd frontend && npm start
