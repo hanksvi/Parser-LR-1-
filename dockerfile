@@ -1,28 +1,42 @@
-# Usa Node 20
-FROM node:20
+# ---------- Etapa 1: construir el frontend ----------
+FROM node:20 AS builder
 
-# Directorio de trabajo dentro del contenedor
 WORKDIR /app
 
-# Copiar solo package.json primero (para caching de npm install)
-COPY package*.json ./
-
-# Instalar dependencias
+# Copiamos solo los archivos necesarios para el build
+COPY nextjs-dashboard/package*.json ./
 RUN npm install
 
-# Copiar todo el código
-COPY . .
+# Copiamos el resto del proyecto
+COPY nextjs-dashboard/ ./
 
-# Instalar Python
-RUN apt-get update && apt-get install -y python3 python3-pip && rm -rf /var/lib/apt/lists/*
+# Compilamos el frontend (Next.js)
+RUN npm run build
 
-# Variables de entorno
-ENV PYTHON_BIN=python3
-ENV SCRIPTS_DIR=/app/src
-ENV PORT=3000
+# ---------- Etapa 2: configurar backend + servidor final ----------
+FROM python:3.11-slim
 
-# Exponer puerto
-EXPOSE 3000
+WORKDIR /app
 
-# Comando por defecto (lo sobrescribimos con docker-compose para dev/prod)
-CMD ["npm", "start"]
+# Instalar dependencias del sistema
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+
+# Copiar archivos del backend y build del frontend
+COPY --from=builder /app/.next ./frontend/.next
+COPY --from=builder /app/public ./frontend/public
+COPY --from=builder /app/package*.json ./frontend/
+
+# Copiar requisitos Python
+COPY nextjs-dashboard/requirements.txt ./requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt || echo "Sin requirements.txt"
+
+# Instalar Node para servir el frontend
+RUN apt-get update && apt-get install -y nodejs npm
+
+# Exponer el puerto (Render usa $PORT)
+ENV PORT=8000
+EXPOSE 8000
+
+# Comando de inicio
+# (ajusta main.py o app.py al nombre de tu backend real)
+CMD python src/main.py & cd frontend && npm start
