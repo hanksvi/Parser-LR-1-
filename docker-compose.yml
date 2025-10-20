@@ -1,0 +1,16 @@
+version: "3.9"
+
+services:
+  app:
+    build:
+      context: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app               # Sincroniza tu proyecto local con el contenedor
+      - /app/node_modules    # Evita sobrescribir node_modules del contenedor
+    environment:
+      - PYTHON_BIN=python3
+      - SCRIPTS_DIR=/app/src
+      - NODE_ENV=development
+    command: npm run dev      # Levanta Next.js en modo desarrollo con hot-reload
