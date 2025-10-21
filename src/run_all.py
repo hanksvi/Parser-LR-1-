@@ -17,12 +17,10 @@ from viz_automata import build_lr1_items_afn, afn_to_png, afd_to_png
 from table_export import save_table_csv, save_table_html
 
 
-# =========================
+
 # Config de demo
-# =========================
+
 GRAMMAR_TEXT = r"""
-# Puedes incluir Start: si quieres, o dejar que tome la 1ra producción
-# Start: S
 S -> A B
 A -> 'a' | ε
 B -> 'b'
@@ -41,10 +39,8 @@ def main():
 
     print("[2] FIRST sets...")
     fs = FirstSets.compute_first_sets(g)
-    # (opcional) mostrar cuántos símbolos tienen FIRST calculado
     try:
-        # si tu clase expone el mapa internamente:
-        first_map_size = len(fs.first_map)  # type: ignore[attr-defined]
+        first_map_size = len(fs.first_map)  
         print(f"  FIRST calculado para {first_map_size} símbolos\n")
     except Exception:
         print("  FIRST calculado.\n")
@@ -57,12 +53,11 @@ def main():
     print("  Transiciones:", num_edges, "\n")
 
     print("[3.b] Renderizando imágenes del autómata...")
-    # AFD (colección canónica)
+
     afd_png_path = out_dir / "lr1_afd.png"
     afd_to_png(aut, str(out_dir / "lr1_afd"), show_items=True)
     print("  AFD (colección canónica) ->", afd_png_path.resolve())
 
-    # AFN (ítems LR(1) con ε para clausura)
     items, edges = build_lr1_items_afn(g, fs)
     afn_png_path = out_dir / "lr1_afn.png"
     afn_to_png(items, edges, str(out_dir / "lr1_afn"))
@@ -72,9 +67,9 @@ def main():
     table = LR1ParseTable.build_lr1_parse_table(g, aut)
     print(table, "\n")
     if not table.is_lr1():
-        print("⚠️  La gramática NO es LR(1), hay conflictos arriba.\n")
+        print("La gramática NO es LR(1), hay conflictos arriba.\n")
     else:
-        print("✅ Sin conflictos (LR(1)).\n")
+        print("Sin conflictos (LR(1)).\n")
 
     print("[4.b] Exportando tabla a CSV/HTML...")
     csv_path = out_dir / "lr1_table.csv"
@@ -105,7 +100,4 @@ def main():
 
 
 if __name__ == "__main__":
-    # Tips de ejecución:
-    #   python3 -u run_all.py
-    # -u = unbuffered (los prints salen al instante)
     main()

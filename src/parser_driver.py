@@ -157,7 +157,7 @@ class ParserDriver:
                 ))
                 continue
 
-            # ------ ACCEPT ------
+            # ACCEPT
             if act.kind == ActionKind.ACCEPT:
                 steps.append(ParseStep(
                     step=step,

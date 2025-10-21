@@ -1,8 +1,3 @@
-# ============================================================
-# table_export.py
-# Exporta la tabla LR(1) (ACTION/GOTO) a HTML y CSV.
-# ============================================================
-
 from __future__ import annotations
 from typing import List
 import csv

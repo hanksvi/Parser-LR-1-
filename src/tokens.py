@@ -1,10 +1,8 @@
 from enum import Enum
 class TokenType(Enum):
-
     ID =1  
     NUM =2
     STRING =3
-
     COMMA =4
     SEMICOLON =5
     LPAREN =6
@@ -14,10 +12,8 @@ class TokenType(Enum):
     MUL =10
     DIV =11
     ASSIGN =12
-
     INT =13
     FLOAT =14
-
     EPS =15
     END =16
     ERR =17

@@ -1,6 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
 import sys, json
 from typing import Dict, List, Tuple
 
@@ -9,8 +6,6 @@ from first_sets import FirstSets
 from lr1_items import LR1Item, build_canonical_collection
 
 EPS = "ε"
-
-# ------------------------- utilidades -------------------------
 
 def _grammar_text_from_productions(prods: List[Dict]) -> str:
     if not prods:
@@ -30,7 +25,7 @@ def _build_grammar_and_first(grammar_text: str):
     fs = FirstSets.compute_first_sets(g)
     return g, fs
 
-# --------------------- AFN de ítems LR(1) ---------------------
+# AFN de ítems LR(1)
 
 def _closure_afn(seed: List[LR1Item], g: Grammar, fs: FirstSets):
     """AFN sobre ítems LR(1): nodo=ítem, arista por avanzar el punto;
@@ -47,7 +42,7 @@ def _closure_afn(seed: List[LR1Item], g: Grammar, fs: FirstSets):
 
     from collections import deque
     q = deque()
-    seen: set[LR1Item] = set()             # <- evita reprocesar el mismo ítem
+    seen: set[LR1Item] = set()
 
     for it in seed:
         get_id(it)
@@ -66,14 +61,12 @@ def _closure_afn(seed: List[LR1Item], g: Grammar, fs: FirstSets):
         if X is None:
             continue
 
-        # (1) consumir X
         nxt = it.advance_dot()
         v = get_id(nxt)
         edges[u].append((X, v))
         if nxt not in seen:
             q.append(nxt)
 
-        # (2) ε-expansión si X es NoTerminal
         if g.is_nonterminal(X):
             gamma = it.beta[1:]
             la_set = fs.first_of_sequence(list(gamma) + [it.lookahead])
@@ -109,7 +102,6 @@ def _lr1_items_afn_to_visual(items: List[LR1Item], edges: Dict[int, List[Tuple[s
     alphabet = sorted({lab for lst in edges.values() for lab, _ in lst}) if edges else []
     return {"states": states, "start_state": "N0", "alphabet": alphabet}
 
-# ------------------ DFA = colección canónica ------------------
 
 def _is_accept_state(items, augmented_start: str) -> bool:
     for it in items:
@@ -140,7 +132,6 @@ def _lr1_dfa_to_visual(g: Grammar, automaton) -> Dict:
     alphabet = sorted(list(g.terminals | g.nonterminals))
     return {"states": states, "start_state": "I0", "alphabet": alphabet}
 
-# --------------------------- comando --------------------------
 
 def cmd_build_both(payload: Dict) -> Dict:
     grammar_text = (payload.get("grammar") or "").strip()
@@ -176,9 +167,7 @@ def main():
         print(json.dumps({"success": False, "error": f"JSON inválido: {e}"}))
         return
     if cmd == "build_both":
-        # IMPORTANTE: evita problemas de codepage en Windows
-        print(json.dumps(cmd_build_both(payload)))   # ensure_ascii=True por defecto
-    else:
+        print(json.dumps(cmd_build_both(payload)))   
         print(json.dumps({"success": False, "error": f"Comando desconocido: {cmd}"}))
 
 if __name__ == "__main__":

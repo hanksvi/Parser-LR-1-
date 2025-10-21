@@ -1,31 +1,18 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
 import sys, json
 from typing import Dict, List, Tuple, Optional
 
-# Importa tus módulos reales
+
 from grammar_spec import Grammar
 from first_sets import FirstSets
 from lr1_items import build_canonical_collection, LR1Item
 
-# ------------------------------------------------------------
-# Helpers
-# ------------------------------------------------------------
 
 def _grammar_text_from_productions(prods: List[Dict]) -> str:
-    """
-    Acepta [{left:"A", right:["a","B"]}, ...] y arma texto:
-      A -> a B
-      B -> ...
-    Usa como símbolo inicial el primer LHS.
-    """
     if not prods:
         return ""
     lines = []
     start = prods[0].get("left", "").strip()
     if start:
-        # opcional; Grammar.from_text toma el primero como start si no se pone
         lines.append(f"Start: {start}")
     for p in prods:
         left = (p.get("left") or "").strip()
@@ -34,36 +21,19 @@ def _grammar_text_from_productions(prods: List[Dict]) -> str:
     return "\n".join(lines)
 
 def _build_lr1_automaton(grammar_text: str):
-    """
-    Compila gramática, calcula FIRST, construye colección canónica LR(1).
-    """
     g = Grammar.from_text(grammar_text)
     fs = FirstSets.compute_first_sets(g)
     automaton = build_canonical_collection(g, fs)
     return g, automaton
 
 def _is_accepting_state(items, augmented_start: str) -> bool:
-    """
-    Un estado es de aceptación si contiene el ítem:
-        S' → S · , $
-    """
     for it in items:
-        # it: LR1Item(left, alpha, beta, lookahead)
         if it.left == augmented_start and len(it.beta) == 0 and it.lookahead == "$":
             return True
     return False
 
 def _lr1_to_visual_automata(grammar: Grammar, automaton) -> Dict:
-    """
-    Convierte la estructura del automata LR(1) a JSON para el canvas:
-      {
-        "states": { "I0": {"name":"I0","is_final":bool,"transitions":{"X":["I1"]}} , ...},
-        "start_state": "I0",
-        "alphabet": [... símbolos (terminales y no terminales) ...]
-      }
-    """
     states: Dict[str, Dict] = {}
-    # alfabeto: todos los símbolos que pueden rotular transiciones
     alphabet = sorted(list(grammar.terminals | grammar.nonterminals))
 
     for st in automaton.states:
@@ -71,7 +41,6 @@ def _lr1_to_visual_automata(grammar: Grammar, automaton) -> Dict:
         states[sid] = {
             "name": sid,
             "is_final": _is_accepting_state(st.items, grammar.augmented_start or ""),
-            # transitions: símbolo → [destinos]
             "transitions": {}
         }
 
@@ -87,18 +56,8 @@ def _lr1_to_visual_automata(grammar: Grammar, automaton) -> Dict:
         "alphabet": alphabet
     }
 
-# ------------------------------------------------------------
-# Command
-# ------------------------------------------------------------
 
 def cmd_build_both(payload: Dict) -> Dict:
-    """
-    Entrada esperada desde el frontend (acepta dos formatos):
-      A) {"grammar": "S -> ..."}
-      B) {"productions": [{"left":"S","right":["A","+","B"]}, ...]}
-    Devuelve:
-      { success, nfa, dfa }
-    """
     grammar_text = (payload.get("grammar") or "").strip()
     if not grammar_text:
         prods = payload.get("productions") or []
@@ -112,8 +71,6 @@ def cmd_build_both(payload: Dict) -> Dict:
         g, lr1_automaton = _build_lr1_automaton(grammar_text)
         vis = _lr1_to_visual_automata(g, lr1_automaton)
 
-        # El autómata de ítems LR(1) es determinista → podemos usarlo
-        # tanto como "NFA" (misma estructura) y "DFA".
         nfa = vis
         dfa = vis
 
@@ -121,9 +78,6 @@ def cmd_build_both(payload: Dict) -> Dict:
     except Exception as e:
         return {"success": False, "error": f"Fallo construyendo AFN/DFA desde gramática: {e}"}
 
-# ------------------------------------------------------------
-# CLI
-# ------------------------------------------------------------
 
 def main():
     if len(sys.argv) < 3:

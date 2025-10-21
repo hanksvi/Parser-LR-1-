@@ -6,16 +6,22 @@ from typing import Dict, List, Optional, Tuple
 from grammar_spec import Grammar, Production
 from lr1_items import LR1Automaton
 
+# NUEVO: soporte de precedencia
+from precedence import PrecedenceConfig
+
+
 class ActionKind(Enum):
     SHIFT = auto()
     REDUCE = auto()
     ACCEPT = auto()
+
 
 @dataclass(frozen=True)
 class Action:
     kind: ActionKind
     target: Optional[int] = None
     production: Optional[Production] = None
+
     def __str__(self) -> str:
         if self.kind == ActionKind.SHIFT:
             return f"d{self.target}"
@@ -27,12 +33,14 @@ class Action:
             return f"r[{self.production.left}→{rhs}]"
         return "acc"
 
+
 @dataclass
 class Conflict:
     state_id: int
     symbol: str
     existing: Action
     incoming: Action
+
     def kind(self) -> str:
         kinds = {self.existing.kind, self.incoming.kind}
         if kinds == {ActionKind.SHIFT, ActionKind.REDUCE}:
@@ -40,9 +48,11 @@ class Conflict:
         if kinds == {ActionKind.REDUCE}:
             return "reduce/reduce"
         return f"{self.existing.kind.name.lower()}/{self.incoming.kind.name.lower()}"
+
     def __str__(self) -> str:
         return (f"[I{self.state_id}, sym='{self.symbol}'] "
                 f"{self.kind()} conflict: existing={self.existing} vs incoming={self.incoming}")
+
 
 @dataclass
 class LR1ParseTable:
@@ -94,7 +104,11 @@ class LR1ParseTable:
         return "\n".join(lines)
 
     @staticmethod
-    def build_lr1_parse_table(grammar: Grammar, automaton: LR1Automaton) -> "LR1ParseTable":
+    def build_lr1_parse_table(
+        grammar: Grammar,
+        automaton: LR1Automaton,
+        precedence: Optional[PrecedenceConfig] = None,   # <-- NUEVO parámetro
+    ) -> "LR1ParseTable":
         action: Dict[int, Dict[str, Action]] = {}
         goto_tbl: Dict[int, Dict[str, int]] = {}
         conflicts: List[Conflict] = []
@@ -110,6 +124,7 @@ class LR1ParseTable:
                     _set_action_with_conflict_check(
                         action, conflicts, sid, sym,
                         Action(ActionKind.SHIFT, target=dst),
+                        precedence=precedence,  # <-- pasar precedencia
                     )
                 elif sym in grammar.nonterminals:
                     goto_tbl.setdefault(sid, {})[sym] = dst
@@ -130,12 +145,15 @@ class LR1ParseTable:
                     aug_prod = Production(grammar.augmented_start, (grammar.start_symbol,))
                     _set_action_with_conflict_check(
                         action, conflicts, sid, "$",
-                        Action(ActionKind.ACCEPT, production=aug_prod)
+                        Action(ActionKind.ACCEPT, production=aug_prod),
+                        precedence=precedence,  # <-- pasar precedencia
                     )
                     continue
                 p = prod_index.get((A, tuple(it.alpha))) or Production(A, tuple(it.alpha))
                 _set_action_with_conflict_check(
-                    action, conflicts, sid, a, Action(ActionKind.REDUCE, production=p)
+                    action, conflicts, sid, a,
+                    Action(ActionKind.REDUCE, production=p),
+                    precedence=precedence,  # <-- pasar precedencia
                 )
 
         return LR1ParseTable(
@@ -146,12 +164,14 @@ class LR1ParseTable:
             nonterminals=nonterminals,
         )
 
+
 def _set_action_with_conflict_check(
     action: Dict[int, Dict[str, Action]],
     conflicts: List[Conflict],
     state_id: int,
     symbol: str,
     incoming: Action,
+    precedence: Optional[PrecedenceConfig] = None,   # <-- NUEVO parámetro
 ) -> None:
     row = action.setdefault(state_id, {})
     existing = row.get(symbol)
@@ -162,5 +182,25 @@ def _set_action_with_conflict_check(
 
     if existing == incoming:
         return
+
+    # Intentar resolver shift/reduce usando precedencia si está disponible
+    if precedence:
+        kinds = {existing.kind, incoming.kind}
+        if kinds == {ActionKind.SHIFT, ActionKind.REDUCE}:
+            # Identificar quién es shift y quién reduce
+            shift_act = incoming if incoming.kind == ActionKind.SHIFT else existing
+            reduce_act = incoming if incoming.kind == ActionKind.REDUCE else existing
+            prod = reduce_act.production
+
+            choice = precedence.compare(token=symbol, production=prod)
+            if choice == +1:
+                # Gana SHIFT
+                row[symbol] = shift_act
+                return
+            if choice == -1:
+                # Gana REDUCE
+                row[symbol] = reduce_act
+                return
+            # None => no se resuelve; cae a conflicto
 
     conflicts.append(Conflict(state_id, symbol, existing, incoming))
