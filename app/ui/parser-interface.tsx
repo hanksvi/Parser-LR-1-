@@ -14,6 +14,7 @@ import {
   CheckCircle2, AlertTriangle, Wand2, RefreshCw
 } from "lucide-react";
 import PrecedenceEditor, { PrecLevel } from "./precedence-editor";
+import FloatingChat from "./floating-chat"; // 👈 chat flotante
 
 type SuggestedLevel = { assoc: "left" | "right" | "nonassoc"; tokens: string[] };
 
@@ -73,7 +74,6 @@ E -> id`);
         buildPayload.precedence = precedence.map(l => ({ assoc: l.assoc, tokens: l.tokens }));
       }
 
-      // usa la clave permitida en route.ts
       const parserResponse = await fetch("/api/run-script", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -145,7 +145,6 @@ E -> id`);
     const bySym: Record<string, number> = {};
     let total = 0;
     for (const c of list) {
-      // ejemplo: [I14, sym='*'] shift/reduce conflict: ...
       const m = c.match(/sym='([^']+)'/);
       const sym = m ? m[1] : "?";
       bySym[sym] = (bySym[sym] || 0) + 1;
@@ -155,6 +154,16 @@ E -> id`);
     items.sort((a, b) => b.count - a.count);
     return { total, items, list };
   }, [parserData]);
+
+  // ------- contexto para la IA -------
+  const aiContext = {
+    grammar,
+    precedence,
+    terminals,
+    isBlocked,
+    ambiguity: parserData?.ambiguity,
+    suggestedLevels: suggested,
+  };
 
   // ------- UI: panel de ambigüedad -------
   const AmbiguityPanel = () => {
@@ -174,7 +183,6 @@ E -> id`);
         </CardHeader>
 
         <CardContent className="space-y-4">
-          {/* Resumen compacto */}
           <div className="flex flex-wrap items-center gap-2">
             <span className="px-2 py-1 rounded text-xs bg-red-100 text-red-700">Tabla bloqueada</span>
             <span className="px-2 py-1 rounded text-xs bg-slate-100 text-slate-700">
@@ -187,7 +195,6 @@ E -> id`);
             ))}
           </div>
 
-          {/* Hints */}
           {Array.isArray(amb.hints) && amb.hints.length > 0 && (
             <div className="bg-white/70 border border-slate-200 rounded p-3">
               <div className="text-sm font-medium mb-2">Sugerencias</div>
@@ -197,7 +204,6 @@ E -> id`);
             </div>
           )}
 
-          {/* Sugerencias de precedencia (niveles) */}
           {(suggested && suggested.length > 0) && (
             <div className="bg-white/70 border border-slate-200 rounded p-3">
               <div className="text-sm font-medium mb-2">Niveles sugeridos (menor → mayor)</div>
@@ -216,7 +222,6 @@ E -> id`);
                 <Button
                   size="sm"
                   onClick={() => {
-                    // aplicar y reconstruir sin doble click
                     setPrecedence(suggested as any);
                     setTimeout(() => runBuild(), 0);
                   }}
@@ -242,7 +247,6 @@ E -> id`);
             </div>
           )}
 
-          {/* Detalle (plegado simple) */}
           {conflictSummary.list.length > 0 && (
             <details className="bg-white/60 border border-slate-200 rounded p-3">
               <summary className="cursor-pointer text-sm font-medium">Ver detalle de conflictos</summary>
@@ -275,8 +279,8 @@ E -> id`);
 
         {/* Main */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-          {/* Grammar */}
-          <Card className="lg:col-span-1 bg-white/80 backdrop-blur-sm border border-slate-200 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]">
+          {/* Gramática */}
+          <Card className="lg:col-span-2 bg-white/80 backdrop-blur-sm border border-slate-200 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]">
             <CardHeader className="border-b border-slate-100 bg-gradient-to-br from-white to-slate-50">
               <CardTitle className="flex items-center gap-2 text-indigo-700">
                 <FileText className="w-5 h-5" />
@@ -291,7 +295,6 @@ E -> id`);
 
               <PrecedenceEditor terminals={terminals} value={precedence} onChange={setPrecedence} />
 
-              {/* Vista previa de gramática desambiguada */}
               {parserData?.desugared_preview && (
                 <Card className="bg-white/70 border border-slate-200">
                   <CardHeader className="py-3">
@@ -367,8 +370,8 @@ E -> id`);
             </CardContent>
           </Card>
 
-          {/* Input */}
-          <Card className="lg:col-span-2 bg-white/80 backdrop-blur-sm border border-slate-200 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]">
+          {/* Cadena de Entrada */}
+          <Card className="lg:col-span-1 bg-white/80 backdrop-blur-sm border border-slate-200 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]">
             <CardHeader className="border-b border-slate-100 bg-gradient-to-br from-white to-slate-50">
               <CardTitle className="flex items-center gap-2 text-indigo-700">
                 <Play className="w-5 h-5" />
@@ -388,8 +391,8 @@ E -> id`);
               />
               <Button
                 onClick={handleParse}
-                disabled={isLoading || !parserData || isBlocked || !inputString.trim()}
-                className="w-full bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white shadow-md hover:shadow-lg transition-all duration-200 font-semibold"
+                disabled={isLoading || !parserData || isBlocked || !inputString.trim() }
+                className="w-full bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white shadow-md hover:shadow-lg transition-all duración-200 font-semibold"
               >
                 {isLoading ? (
                   <span className="flex items-center gap-2">
@@ -420,7 +423,7 @@ E -> id`);
                 <Workflow className="w-4 h-4 mr-2" />
                 AFN
               </TabsTrigger>
-              <TabsTrigger value="dfa" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duración-200 font-medium rounded-lg">
+              <TabsTrigger value="dfa" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200 font-medium rounded-lg">
                 <Workflow className="w-4 h-4 mr-2" />
                 DFA
               </TabsTrigger>
@@ -494,6 +497,8 @@ E -> id`);
           </Tabs>
         )}
       </div>
+
+      <FloatingChat context={aiContext} title="Asistente LR(1)" />
     </div>
   );
 }
